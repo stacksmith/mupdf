@@ -10,6 +10,12 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
+#define PERSIST_BOOKMARKS 1
+// When defined, creating a bookmark with <1-9>m will attempt to store a file
+// containing the bookmark array alongside the orignal file, with a .bmk extension.
+// Opening a file will result in an attempt to load the .bmk file.
+
+
 enum panning
 {
 	DONT_PAN = 0,
@@ -211,6 +217,18 @@ static void event_cb(fz_context *ctx, pdf_document *doc, pdf_doc_event *event, v
 void pdfapp_open(pdfapp_t *app, char *filename, int reload)
 {
 	pdfapp_open_progressive(app, filename, reload, 0);
+#ifdef PERSIST_BOOKMARKS
+	char* bookmark_fname = (char*)malloc(strlen(filename)+5);
+	strcpy(bookmark_fname,filename);
+	strcat(bookmark_fname,".bmk");
+	FILE* fbm = fopen(bookmark_fname,"r");
+	free(bookmark_fname);
+	if(fbm){
+	  int res = fread(app->marks,sizeof(int),10,fbm);
+	  //printf("read %d items\n",res);
+	  //int i; for(i=0;i<10;i++) printf("%d",app->marks[i]);
+	}
+#endif
 }
 
 #ifdef HAVE_CURL
@@ -1341,6 +1359,18 @@ void pdfapp_onkey(pdfapp_t *app, int c, int modifiers)
 			int idx = atoi(app->number);
 			if (idx >= 0 && idx < nelem(app->marks))
 				app->marks[idx] = app->pageno;
+#ifdef PERSIST_BOOKMARKS
+			char* bookmark_fname = (char*)malloc(strlen(app->docpath)+5);
+			strcpy(bookmark_fname,app->docpath);
+			strcat(bookmark_fname,".bmk");
+			FILE* fbm = fopen(bookmark_fname,"w");
+			free(bookmark_fname);
+			if(fbm){
+			  int i = fwrite(app->marks,sizeof(int),10,fbm);
+			  //printf("wrote %d bookmarks\n",i);
+			  fclose(fbm);
+			}			  
+#endif			
 		}
 		else
 		{
